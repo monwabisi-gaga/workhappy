@@ -31,6 +31,7 @@ test.describe("assessment dashboard", () => {
 
     const downloadPromise = page.waitForEvent("download");
     await page.getByRole("button", { name: "Export safe CSV" }).click();
+    await expect(page.locator("[data-export-feedback]")).toHaveText("Preparing download…");
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toBe("assessments.csv");
 

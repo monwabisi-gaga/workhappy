@@ -17,6 +17,8 @@ export PGUSER=postgres PGPASSWORD=postgres
 
 ```bash
 bundle install
+npm install
+npm run build
 bin/rails db:prepare
 bin/rails db:seed
 bin/rails server
@@ -24,7 +26,7 @@ bin/rails server
 
 Open <http://localhost:3000>, then choose **Open demo dashboard**. The demo session is deliberately not production authentication; a real application must derive the company from an authenticated admin membership.
 
-Run the checks with `bin/rails test`.
+Run the checks with `bin/rails test`. `bin/dev` and `bin/setup` build the TypeScript asset automatically; run `npm run build` directly after changing `app/javascript/export.ts`. `app/assets/javascripts/export.js` is generated output—edit the TypeScript source, not the compiled asset.
 
 ## PostgreSQL benchmark
 

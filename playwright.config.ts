@@ -14,7 +14,7 @@ export default defineConfig({
     },
   },
   webServer: {
-    command: "bin/rails db:prepare db:seed && bin/rails server -p 3000",
+    command: "npm run build && bin/rails db:prepare db:seed && bin/rails server -p 3000",
     url: "http://127.0.0.1:3000/up",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

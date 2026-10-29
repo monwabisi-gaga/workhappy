@@ -2,10 +2,13 @@
   "name": "workhappy-assessment-e2e",
   "private": true,
   "scripts": {
+    "build": "esbuild app/javascript/export.ts --bundle --format=iife --outfile=app/assets/javascripts/export.js",
+    "pretest:e2e": "npm run build",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui"
   },
   "devDependencies": {
-    "@playwright/test": "^1.58.0"
+    "@playwright/test": "^1.58.0",
+    "esbuild": "^0.27.0"
   }
 }

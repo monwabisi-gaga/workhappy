@@ -1,2 +1,3 @@
 #!/usr/bin/env ruby
+system("npm", "run", "build", exception: true) if File.exist?("package.json")
 exec "./bin/rails", "server", *ARGV
