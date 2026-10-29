@@ -16,6 +16,14 @@ class AssessmentsTest < ActionDispatch::IntegrationTest
     assert_redirected_to root_path
   end
 
+  test "date filters cannot select a future date" do
+    post demo_sign_in_path
+    get assessments_path
+    assert_response :success
+    assert_select "input[type=date][name='from'][max='#{Date.current}']", count: 1
+    assert_select "input[type=date][name='to'][max='#{Date.current}']", count: 1
+  end
+
   test "export is scoped and redacts identity and raw responses" do
     post demo_sign_in_path
     get export_assessments_path

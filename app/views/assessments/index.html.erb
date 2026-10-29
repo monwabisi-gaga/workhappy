@@ -11,8 +11,8 @@
   <section class="panel" aria-labelledby="filters-heading">
     <div class="panel-heading"><h2 id="filters-heading">Filter assessments</h2><span class="badge">Max 100 shown</span></div>
     <%= form_with url: assessments_path, method: :get, local: true, class: "filter-form" do |form| %>
-      <div class="field"><%= form.label :from, "From" %><%= form.date_field :from, value: params[:from] %></div>
-      <div class="field"><%= form.label :to, "To" %><%= form.date_field :to, value: params[:to] %></div>
+      <div class="field"><%= form.label :from, "From" %><%= form.date_field :from, value: params[:from], max: Date.current %></div>
+      <div class="field"><%= form.label :to, "To" %><%= form.date_field :to, value: params[:to], max: Date.current %></div>
       <div class="field"><%= form.label :status %><%= form.select :status, options_for_select([["All statuses", ""]] + @statuses.map { |status| [status.humanize, status] }, params[:status]) %></div>
       <%= form.submit "Apply filters", class: "button button-secondary" %>
     <% end %>
