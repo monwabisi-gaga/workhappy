@@ -31,6 +31,7 @@
 /public/assets
 /test-results
 /playwright-report
+/node_modules
 
 # Ignore key files for decrypting credentials and more.
 /config/*.key
