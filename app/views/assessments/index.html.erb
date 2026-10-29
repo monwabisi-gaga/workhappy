@@ -27,7 +27,7 @@
     <div class="panel-heading"><h2 id="results-heading">Results</h2><span class="result-count"><%= @assessments.size %> shown</span></div>
     <% if @assessments.any? %>
       <div class="table-wrap"><table><caption class="sr-only">Company assessments</caption><thead><tr><th>ID</th><th>Status</th><th>Created</th><th>Score</th></tr></thead><tbody>
-        <% @assessments.each do |assessment| %><tr><td>#<%= assessment.id %></td><td><span class="status status-<%= assessment.status %>"><%= assessment.status.humanize %></span></td><td><%= l(assessment.created_at, format: :short) %></td><td><%= AssessmentScore.call(assessment) || "Not available" %></td></tr><% end %>
+        <% @assessments.each do |assessment| %><tr><td>#<%= assessment.id %></td><td><span class="status status-<%= assessment.status %>"><%= assessment.status.humanize %></span></td><td><%= l(assessment.created_at, format: :short) %></td><td><%= @scores[assessment.id] || "Not available" %></td></tr><% end %>
       </tbody></table></div>
     <% else %><div class="empty-state"><h3>No assessments match these filters</h3><p>Try widening the date range or choosing all statuses.</p></div><% end %>
   </section>

@@ -10,9 +10,9 @@ The controller always starts with `current_company.assessments`. It accepts only
 
 ## Performance
 
-The dashboard returns at most 100 rows and selects no raw response payload into the view. The migration adds `(company_id, status, created_at)` and `(company_id, created_at)` indexes for the filtered and unfiltered paths.
+The dashboard returns at most 100 rows and computes each score once in the controller; the template receives only the derived score, rather than traversing response data itself. The migration adds `(company_id, status, created_at)` and `(company_id, created_at)` indexes for the filtered and unfiltered paths.
 
-No production-sized PostgreSQL dataset was available, so no benchmark is fabricated. Before release, run `EXPLAIN (ANALYZE, BUFFERS)` on an anonymised comparable database for the filtered query, and record planning time, execution time, rows removed by filter, and buffer usage before and after the migration.
+The measurable comparison is the dashboard query with and without the 100-row cap and these indexes: run `EXPLAIN (ANALYZE, BUFFERS)` on the filtered query against an anonymised production-sized PostgreSQL copy, recording planning time, execution time, rows removed by filter, and shared buffer hits/reads in both runs. The expected improvement is bounded result work plus indexed tenant/status/date lookup; the release record must contain the actual before/after timings rather than an invented benchmark. The local SQLite dataset is intentionally not used as a production performance claim.
 
 ## Status rollout
 
@@ -20,12 +20,12 @@ New and updated records are restricted by the model validation and database chec
 
 ## Release and rollback
 
-1. Capture and verify a platform database backup before deployment.
-2. Deploy the additive application and indexes; monitor locks, latency, and errors.
-3. Run a read-only status inventory and agree unknown-value mappings.
-4. In a low-traffic window, run an idempotent, resumable, throttled batch backfill. Record the last ID.
-5. Verify counts, scores, tenant isolation, and query plans before enforcing a constraint on an existing large table. Prefer `NOT VALID` then separate validation in PostgreSQL.
-6. Roll back to the prior application release if errors occur. Stop and record a backfill in progress. Preserve additive indexes. For incorrect data, restore the backup to a separate database, validate it, then use the platform recovery procedure; never blindly reverse a partial backfill.
+1. **Before deployment:** capture a platform database backup/snapshot, wait for it to complete, and verify its identifier and restore metadata. Confirm the rollback release and recovery owner.
+2. **Safe while live:** deploy the additive application validation and logging changes. Monitor error rate, latency, and lock waits.
+3. **Safe while live:** run a read-only status inventory and agree unknown-value mappings. Create the two indexes concurrently in PostgreSQL (`disable_ddl_transaction!` plus `algorithm: :concurrently`) so the large table is not stalled; schedule the index work if the platform cannot run concurrent DDL.
+4. **Low-traffic window:** pause or coordinate writers if required by the chosen backfill mechanism, then run an idempotent, resumable, throttled primary-key batch backfill. Commit each short batch and record the last ID. Do not execute this historical backfill as part of application boot or migration.
+5. **Safe while live after backfill:** verify counts, scores, tenant isolation, and query plans. Add the final status constraint as `NOT VALID`, then validate it separately; use a low-traffic window if validation duration or lock behavior requires it.
+6. **Rollback:** if application errors occur, roll back to the prior application release. Stop and record any backfill progress; preserve additive indexes. For incorrect data, restore the backup to a separate database, validate it, then use the platform recovery procedure—never blindly reverse a partial backfill.
 
 ## Deliberate non-goals
 

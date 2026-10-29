@@ -3,6 +3,9 @@ class AssessmentsController < ApplicationController
 
   def index
     @assessments = filtered_assessments.limit(100)
+    @scores = @assessments.each_with_object({}) do |assessment, scores|
+      scores[assessment.id] = AssessmentScore.call(assessment)
+    end
     @statuses = Assessment::STATUSES
   end
 
