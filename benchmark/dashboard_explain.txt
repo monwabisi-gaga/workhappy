@@ -1,0 +1,38 @@
+# Dashboard benchmark
+# Generated: 2026-10-29T12:25:23Z
+# PostgreSQL: 16.15 (Debian 16.15-1.pgdg13+2)
+# Rows: 250000; companies: 25
+# Dataset is synthetic/anonymized. No application or historical status backfill was run.
+# Before: no dashboard indexes and no LIMIT (baseline work).
+# After: company/status/date indexes and LIMIT 100 (dashboard shape).
+
+## BEFORE
+Gather Merge  (cost=7194.14..7217.70 rows=202 width=27) (actual time=6.655..8.520 rows=1234 loops=1)
+  Workers Planned: 2
+  Workers Launched: 2
+  Buffers: shared hit=3919
+  ->  Sort  (cost=6194.11..6194.36 rows=101 width=27) (actual time=4.769..4.790 rows=411 loops=3)
+        Sort Key: created_at DESC
+        Sort Method: quicksort  Memory: 58kB
+        Buffers: shared hit=3919
+        Worker 0:  Sort Method: quicksort  Memory: 41kB
+        Worker 1:  Sort Method: quicksort  Memory: 42kB
+        ->  Parallel Seq Scan on assessments  (cost=0.00..6190.75 rows=101 width=27) (actual time=0.016..4.681 rows=411 loops=3)
+              Filter: ((company_id = 3) AND ((status)::text = 'completed'::text) AND (created_at >= (now() - '90 days'::interval)))
+              Rows Removed by Filter: 82922
+              Buffers: shared hit=3847
+Planning:
+  Buffers: shared hit=48
+Planning Time: 0.108 ms
+Execution Time: 8.570 ms
+
+## AFTER
+Limit  (cost=0.42..392.56 rows=100 width=26) (actual time=0.026..0.133 rows=100 loops=1)
+  Buffers: shared hit=100 read=3
+  ->  Index Scan Backward using benchmark_assessments_on_company_status_created_at on assessments  (cost=0.42..980.76 rows=250 width=26) (actual time=0.025..0.126 rows=100 loops=1)
+        Index Cond: ((company_id = 3) AND ((status)::text = 'completed'::text) AND (created_at >= (now() - '90 days'::interval)))
+        Buffers: shared hit=100 read=3
+Planning:
+  Buffers: shared hit=14 read=2
+Planning Time: 0.135 ms
+Execution Time: 0.144 ms

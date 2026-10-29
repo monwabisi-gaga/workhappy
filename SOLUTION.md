@@ -8,11 +8,38 @@ The supplied brief does not define authentication, a scoring formula, or a respo
 
 The controller always starts with `current_company.assessments`. It accepts only `from`, `to`, and `status`; date filters are inclusive day boundaries and invalid dates are ignored. Invalid statuses do not broaden the query. CSV output contains only assessment ID, canonical status, timestamp, and derived score. It excludes employee identity and raw answers. `find_each` emits rows in batches. Sensitive response parameters are filtered from Rails logs.
 
-## Performance
+## PostgreSQL and performance
+
+Development and test use PostgreSQL through the `pg` adapter. Set `PGUSER`, `PGPASSWORD`, `PGHOST`, `PGPORT`, `PGDATABASE`, and `PGTESTDATABASE` when local defaults do not apply. The CI test and E2E jobs run against PostgreSQL services.
 
 The dashboard returns at most 100 rows and computes each score once in the controller; the template receives only the derived score, rather than traversing response data itself. The migration adds `(company_id, status, created_at)` and `(company_id, created_at)` indexes for the filtered and unfiltered paths.
 
-The measurable comparison is the dashboard query with and without the 100-row cap and these indexes: run `EXPLAIN (ANALYZE, BUFFERS)` on the filtered query against an anonymised production-sized PostgreSQL copy, recording planning time, execution time, rows removed by filter, and shared buffer hits/reads in both runs. The expected improvement is bounded result work plus indexed tenant/status/date lookup; the release record must contain the actual before/after timings rather than an invented benchmark. The local SQLite dataset is intentionally not used as a production performance claim.
+`script/benchmark_dashboard.rb` creates a dedicated benchmark database table with 250,000 synthetic rows across 25 companies, runs `ANALYZE`, captures a baseline without the dashboard indexes or result limit, adds the two indexes, then captures the dashboard-shaped query with `LIMIT 100`. It writes the raw `EXPLAIN (ANALYZE, BUFFERS)` output to a local report. It does not touch the development/test databases and does not execute a historical status backfill.
+
+### Recorded benchmark
+
+Command:
+
+```bash
+BENCHMARK_DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/workhappy_benchmark \
+  BENCHMARK_ROWS=250000 BENCHMARK_COMPANIES=25 \
+  bundle exec ruby script/benchmark_dashboard.rb
+```
+
+Dataset: 250,000 synthetic rows, 25 companies, five canonical statuses, and timestamps distributed over 730 days. Query target: company 3, completed assessments from the last 90 days.
+
+The complete raw output is retained in `benchmark/dashboard_explain.txt` and was generated locally against PostgreSQL 16. The summary below is copied from that run; timings and buffer counts are not estimates:
+
+<!-- BENCHMARK_RESULTS_START -->
+PostgreSQL 16.15, generated 2026-10-29T12:25:23Z:
+
+| Shape | Plan | Actual rows | Planning time | Execution time | Buffers |
+| --- | --- | ---: | ---: | ---: | --- |
+| No dashboard indexes and no `LIMIT` | Parallel sequential scan + sort | 1,234 | 0.108 ms | 8.570 ms | 3,919 shared hits |
+| Composite indexes and `LIMIT 100` | Backward index scan on `benchmark_assessments_on_company_status_created_at` | 100 | 0.135 ms | 0.144 ms | 100 shared hits, 3 reads |
+
+The baseline removed 82,922 rows by filter. The indexed plan stopped after the first 100 ordered matches. The complete plans, including worker counts and sort details, are in `benchmark/dashboard_explain.txt`.
+<!-- BENCHMARK_RESULTS_END -->
 
 ## Status rollout
 
