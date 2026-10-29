@@ -1,0 +1,45 @@
+require "test_helper"
+require "csv"
+
+class AssessmentsTest < ActionDispatch::IntegrationTest
+  setup do
+    @company = Company.create!(name: "Allowed")
+    @other_company = Company.create!(name: "Not allowed")
+    @employee = @company.employees.create!(email: "secret@example.test")
+    @other_employee = @other_company.employees.create!(email: "other@example.test")
+    @assessment = @company.assessments.create!(employee: @employee, status: "completed", responses_json: { "questions" => [{ "score" => 100 }] })
+    @other_assessment = @other_company.assessments.create!(employee: @other_employee, status: "completed", responses_json: { "questions" => [{ "score" => 1 }] })
+  end
+
+  test "requires a company session" do
+    get assessments_path
+    assert_redirected_to root_path
+  end
+
+  test "export is scoped and redacts identity and raw responses" do
+    post demo_sign_in_path
+    get export_assessments_path
+    assert_response :success
+    assert_equal "text/csv", response.media_type
+    assert_equal %w[assessment_id status created_at score], CSV.parse(response.body, headers: true).headers
+    exported_ids = CSV.parse(response.body, headers: true).map { |row| row["assessment_id"].to_i }
+    assert_equal [@assessment.id], exported_ids
+    assert_not_includes response.body, "secret@example.test"
+    assert_not_includes response.body, "questions"
+    assert_equal [@assessment.id], exported_ids
+  end
+
+  test "filters export by canonical status and inclusive dates" do
+    post demo_sign_in_path
+    @company.assessments.create!(employee: @employee, status: "pending", created_at: Time.zone.parse("2026-01-02 12:00"))
+    get export_assessments_path, params: { from: "2026-01-02", to: "2026-01-02", status: "pending" }
+    rows = CSV.parse(response.body, headers: true)
+    assert_equal ["pending"], rows.map { |row| row["status"] }
+  end
+
+  test "invalid filters do not broaden tenant query" do
+    post demo_sign_in_path
+    get export_assessments_path, params: { from: "not-a-date", status: "not-a-status" }
+    assert_equal [@assessment.id], CSV.parse(response.body, headers: true).map { |row| row["assessment_id"].to_i }
+  end
+end

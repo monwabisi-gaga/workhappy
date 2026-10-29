@@ -1,0 +1,34 @@
+<main class="dashboard-shell">
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Assessment operations</p>
+      <h1><%= current_company.name %></h1>
+      <p class="muted">Recent assessments for your company</p>
+    </div>
+    <%= link_to "Home", root_path, class: "text-link" %>
+  </header>
+
+  <section class="panel" aria-labelledby="filters-heading">
+    <div class="panel-heading"><h2 id="filters-heading">Filter assessments</h2><span class="badge">Max 100 shown</span></div>
+    <%= form_with url: assessments_path, method: :get, local: true, class: "filter-form" do |form| %>
+      <div class="field"><%= form.label :from, "From" %><%= form.date_field :from, value: params[:from] %></div>
+      <div class="field"><%= form.label :to, "To" %><%= form.date_field :to, value: params[:to] %></div>
+      <div class="field"><%= form.label :status %><%= form.select :status, options_for_select([["All statuses", ""]] + @statuses.map { |status| [status.humanize, status] }, params[:status]) %></div>
+      <%= form.submit "Apply filters", class: "button button-secondary" %>
+    <% end %>
+    <%= form_with url: export_assessments_path, method: :get, local: true, class: "export-form", data: { export_form: true } do |form| %>
+      <%= form.hidden_field :from, value: params[:from] %><%= form.hidden_field :to, value: params[:to] %><%= form.hidden_field :status, value: params[:status] %>
+      <%= form.submit "Export safe CSV", class: "button button-primary", data: { export_button: true } %>
+      <span data-export-feedback role="status" aria-live="polite">CSV contains ID, status, date, and score.</span>
+    <% end %>
+  </section>
+
+  <section class="panel table-panel" aria-labelledby="results-heading">
+    <div class="panel-heading"><h2 id="results-heading">Results</h2><span class="result-count"><%= @assessments.size %> shown</span></div>
+    <% if @assessments.any? %>
+      <div class="table-wrap"><table><caption class="sr-only">Company assessments</caption><thead><tr><th>ID</th><th>Status</th><th>Created</th><th>Score</th></tr></thead><tbody>
+        <% @assessments.each do |assessment| %><tr><td>#<%= assessment.id %></td><td><span class="status status-<%= assessment.status %>"><%= assessment.status.humanize %></span></td><td><%= l(assessment.created_at, format: :short) %></td><td><%= AssessmentScore.call(assessment) || "Not available" %></td></tr><% end %>
+      </tbody></table></div>
+    <% else %><div class="empty-state"><h3>No assessments match these filters</h3><p>Try widening the date range or choosing all statuses.</p></div><% end %>
+  </section>
+</main>
