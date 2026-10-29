@@ -29,6 +29,8 @@
 !/tmp/storage/.keep
 
 /public/assets
+/test-results
+/playwright-report
 
 # Ignore key files for decrypting credentials and more.
 /config/*.key
