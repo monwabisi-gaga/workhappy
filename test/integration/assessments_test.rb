@@ -47,7 +47,32 @@ class AssessmentsTest < ActionDispatch::IntegrationTest
 
   test "invalid filters do not broaden tenant query" do
     post demo_sign_in_path
-    get export_assessments_path, params: { from: "not-a-date", status: "not-a-status" }
-    assert_equal [@assessment.id], CSV.parse(response.body, headers: true).map { |row| row["assessment_id"].to_i }
+    get export_assessments_path, params: { from: "not-a-date", status: "done" }
+    exported_ids = CSV.parse(response.body, headers: true).map { |row| row["assessment_id"].to_i }
+    assert_equal [@assessment.id], exported_ids
+    assert_not_includes exported_ids, @other_assessment.id
+  end
+
+  test "malformed responses do not crash the dashboard or leak into CSV" do
+    malformed = @company.assessments.create!(
+      employee: @employee,
+      status: "archived",
+      responses_json: {
+        "questions" => [{ "score" => "not-a-number", "answer" => "sensitive free text" }, { "score" => nil }],
+        "free_text" => "sensitive free text"
+      }
+    )
+    post demo_sign_in_path
+
+    get assessments_path
+    assert_response :success
+    assert_includes response.body, "Not available"
+
+    get export_assessments_path
+    row = CSV.parse(response.body, headers: true).find { |candidate| candidate["assessment_id"] == malformed.id.to_s }
+    assert_not_nil row
+    assert_nil row["score"]
+    assert_not_includes response.body, "sensitive free text"
+    assert_not_includes response.body, "not-a-number"
   end
 end
